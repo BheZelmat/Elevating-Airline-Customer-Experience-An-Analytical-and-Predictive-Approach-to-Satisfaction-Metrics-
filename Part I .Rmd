@@ -1,0 +1,1248 @@
+---
+title: "Airline Data Analysis "
+author: "Zelmat B Houssem E"
+date: "2023-03-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+
+
+# Read Data 
+
+```{r}
+
+library(tidyverse)
+library(greybox)
+library(corrplot)
+library(plotrix)
+library(cluster)
+
+source("Rfunctions.R")
+
+
+
+# read the data 
+data<-read.csv("airlinesData120.csv")
+
+
+# dimensions of the data 
+dim(data)
+
+View(data)
+
+```
+
+
+# Check Missing Values
+
+
+
+```{r}
+
+
+
+total.deleted.values<-0
+
+zero.col<-c("Inflight.wifi.service","Ease.of.Online.booking","Food.and.drink","Online.boarding","Inflight.entertainment","Leg.room.service", "Cleanliness")
+
+#check for the zero values : 
+
+
+
+colSums(data[zero.col]==0) 
+
+
+
+
+
+
+# delete zero values : 
+
+preprocessed.data<- filter (data, Inflight.wifi.service!= 0 & 
+                                  Departure.Arrival.time.convenient!=0 &
+                                  Ease.of.Online.booking!= 0 & 
+                              Food.and.drink!= 0 & 
+                              Online.boarding!= 0 & 
+                              Inflight.entertainment!= 0 & 
+                              Leg.room.service!= 0 &
+                               Cleanliness!= 0 )
+
+
+# check if zero values are deleted :
+
+colSums(preprocessed.data[zero.col]==0) 
+
+
+total.deleted.values<- total.deleted.values +sum(colSums(data[zero.col]==0)) 
+
+total.deleted.values
+
+total.deleted.values<- total.deleted.values +sum(is.na(data))  
+
+total.deleted.values
+
+# Delete NA 
+preprocessed.data<- na.omit(preprocessed.data)#
+
+
+# check if Na ARE deleted : 
+
+#sum(is.na(preprocessed.data)) 
+
+
+
+
+preprocessed.data.b<-preprocessed.data  
+
+
+
+
+
+```
+
+## Missing values  : 
+
+The summary of the data highlights the existence of 33 missing values (NA's) in the "Arrival.Delay.in.minutes", these relative rows of the missing data were deleted since the feature arrival delay in mintues is crucial to determine the satisfaction of a customer. Additionally 1020  0 values were noticed in the columns   "Inflight.wifi.service","Ease.of.Online.booking","Food.and.drink","Online.boarding  "," Inflight.entertainment","Leg.room.service" and "Cleanliness". Although the 0 values could be interpreted as a typing error of dissatisfaction  and replace it with 1 (lowest value of dissatisfaction), however this can create an imbalance in the data set as well as a biased interpretation if the 0 values do not represent a low value of dissatisfaction, therefore the rows of the relative zero values were also dropped, Resulting a new dimension of (9863,23).   
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+#Convert to factors 
+
+preprocessed.data$Gender<- as.factor(preprocessed.data$Gender)
+preprocessed.data$Customer.Type<- as.factor(preprocessed.data$Customer.Type)
+preprocessed.data$Type.of.Travel<- as.factor(preprocessed.data$Type.of.Travel)
+preprocessed.data$Class<- as.factor(preprocessed.data$Class)
+preprocessed.data$Inflight.wifi.service<- as.factor(preprocessed.data$Inflight.wifi.service)
+preprocessed.data$Ease.of.Online.booking<- as.factor(preprocessed.data$Ease.of.Online.booking)
+preprocessed.data$Gate.location<- as.factor(preprocessed.data$Gate.location)
+preprocessed.data$Food.and.drink<- as.factor(preprocessed.data$Food.and.drink)
+preprocessed.data$Online.boarding<- as.factor(preprocessed.data$Online.boarding)
+preprocessed.data$Leg.room.service<- as.factor(preprocessed.data$Leg.room.service)
+preprocessed.data$Baggage.handling<- as.factor(preprocessed.data$Baggage.handling)
+preprocessed.data$Checkin.service<- as.factor(preprocessed.data$Checkin.service)
+preprocessed.data$Inflight.service<- as.factor(preprocessed.data$Inflight.service)
+preprocessed.data$Departure.Arrival.time.convenient<- as.factor(preprocessed.data$Departure.Arrival.time.convenient)
+preprocessed.data$ Seat.comfort<- as.factor(preprocessed.data$ Seat.comfort)
+preprocessed.data$Inflight.entertainment<- as.factor(preprocessed.data$Inflight.entertainment)
+preprocessed.data$On.board.service<- as.factor(preprocessed.data$On.board.service)
+preprocessed.data$Cleanliness<- as.factor(preprocessed.data$Cleanliness)
+
+
+
+
+preprocessed.data$satisfaction<- as.factor(preprocessed.data$satisfaction)
+
+summary(preprocessed.data)
+
+
+
+
+```
+
+
+
+## Target variables  :
+
+
+The analysis of the target variable showcase that the overall satisfaction of the data set is 43%, where as the dissatisfaction or neutrality represent 57% of the observations.
+
+```{r}
+
+
+# how many people are satisfied 
+
+(sum(preprocessed.data$satisfaction=="satisfied")/length(preprocessed.data$satisfaction))*100
+
+# how many people are unsatisfied or neutral : 
+
+(1-sum(preprocessed.data$satisfaction=="satisfied")/length(preprocessed.data$satisfaction)) * 100 
+
+
+```
+
+
+
+```{r}
+
+barp(preprocessed.data,"satisfaction", freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+
+## Personal Details :
+
+
+
+### Gender : 
+
+
+The analysis of gender features of the given data set suggests a balanced distribution of gender with 50% occurrence of both genders, there is also a balanced conditional probability of satisfaction for both genders  
+
+
+
+```{r}
+
+
+# how many males in the population  : 50%
+
+(sum(preprocessed.data$Gender=="Male")/length(preprocessed.data$Gender))*100
+
+# how many females in the population :  50% 
+
+(1-sum(preprocessed.data$Gender=="Male")/length(preprocessed.data$Gender)) * 100 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+barp(preprocessed.data,"Gender",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+cc_barplot(preprocessed.data,"satisfaction","Gender",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+### Customer type  : 
+
+The analysis off customer type highlights that 84% of the population are loyal customers expressing an equal distribution of satisfaction, where the disloyal customers on the other hand expressed a high level of dissatisfaction (83%). 
+
+
+
+```{r}
+
+
+# how many loyal customers  in the population  : 84.26 %
+
+(sum(preprocessed.data$Customer.Type=="Loyal Customer")/length(preprocessed.data$Gender))*100
+
+# how many females in the population :  15.73% 
+
+(1-sum(preprocessed.data$Customer.Type=="Loyal Customer")/length(preprocessed.data$Gender)) * 100 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+barp(preprocessed.data,"Customer.Type",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+cc_barplot(preprocessed.data,"Customer.Type","satisfaction",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+## Age : 
+
+
+
+The Age feature in the given data set outline that airline customers mean age is 40 years old following a normal distribution, this feature also indicates a higher level of satisfaction for the [40-60] in contrast with younger range [0-40] which expressed a higher level of dissatisfaction, conditionally the [60-80] range also showed a significant level of dissatisfaction.
+
+```{r}
+
+
+hist(preprocessed.data$Age, breaks = 20, col="purple", main="Distribution of Age ", xlab="Age")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+cc_hist(preprocessed.data,"Age", "satisfaction", breaks=40)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+cc_boxplot(preprocessed.data, "Age", "satisfaction")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+### Type of travel  : 
+
+
+Business travel is the most commun type of travelling  in the given data set with a percentage of 69% and 31% for the personal travel type. The personal travelling customers exhibited a high level of dissatisfaction (91%) in contrast the business travel users showcased a good satisfaction level (58%). 
+
+
+
+```{r}
+
+
+# how many  customers  in the population travel personal   : 31 %
+
+(sum(preprocessed.data$Type.of.Travel =="Personal Travel")/length(preprocessed.data$Gender))*100
+
+# how many customers  in the population travel Business :  69% 
+
+(1-sum(preprocessed.data$Type.of.Travel=="Personal Travel")/length(preprocessed.data$Gender)) * 100 
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+barp(preprocessed.data,"Type.of.Travel",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+cc_barplot(preprocessed.data,"Type.of.Travel","satisfaction",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+### Class  : 
+
+
+Business travel is the most commun type of travelling  in the given data set with a percentage of 69% and 31% for the personal travel type. The personal travelling customers exhibited a high level of dissatisfaction (91%) in contrast the business travel users showcased a good satisfaction level (58%). 
+
+
+
+```{r}
+
+
+# how many  customers  in the population travel Eco class  : 44.13 %
+
+(sum(preprocessed.data$Class =="Eco")/length(preprocessed.data$Gender))*100
+
+
+
+# how many customers  in the population travel Eco plus  class:  7.17% 
+(sum(preprocessed.data$Class =="Eco Plus")/length(preprocessed.data$Gender))*100
+
+
+
+
+# how many customers  in the population travel Business class :  48.68615% 
+(sum(preprocessed.data$Class =="Business")/length(preprocessed.data$Gender))*100
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+barp(preprocessed.data,"Class",freq = "relfreq")
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+cc_barplot(preprocessed.data,"Class","satisfaction",freq = "relfreq")
+
+
+
+```
+
+## Flight Details : 
+
+
+### Flight Distance : 
+
+The flight distance feature indicate that most of the flight are the range of [0-1200] miles, additionally the data also showcase that customers shown a higher degree of satisfaction as the flight distance increases [+1300] miles,however the lower distance flights [0-1300] have shown more dissatisfaction and neutrality.
+
+
+```{r}
+
+
+hist(preprocessed.data$Flight.Distance, breaks = 20, col="light blue", main="Distribution of Flight distances ", xlab="Age")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+cc_hist(preprocessed.data,"Flight.Distance", "satisfaction", breaks=40)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+cc_boxplot(preprocessed.data, "Flight.Distance", "satisfaction")
+
+
+
+```
+
+
+
+
+
+
+### Departure Delay  : 
+
+The flight departure delay feature indicate that a large part of the flights delays are in the range [0-30 min],and most of the delays lay under the [100 min] range. additionally the data also showcase that customers shown a higher degree of satisfaction as the departures delays are under the 100 min range (1h40 min), on the other hand as the delays surpass the 100 min customers shown more dissatisfactioln and neutrality.  
+
+
+```{r}
+
+
+hist(preprocessed.data$Departure.Delay.in.Minutes, breaks = 10, col="light blue", main="Distribution of Departure Delays ", xlab="delays (min)")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+cc_hist(preprocessed.data,"Departure.Delay.in.Minutes", "satisfaction", breaks=6)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+cc_boxplot(preprocessed.data, "Departure.Delay.in.Minutes", "satisfaction")
+
+
+
+```
+
+
+
+
+
+
+
+### Arrival Delay  : 
+
+The flight Arrival delay feature have shown a similar behavior to the departure delays where  a large part of the flights delays are in the range [0-30 min],and most of the delays lay under the [100 min] range. additionally the data also showcase that customers shown a higher degree of satisfaction as the departures delays are under the 100 min range (1h40 min), on the other hand as the delays surpass the 100 min customers shown more dissatisfaction and neutrality.  
+
+
+```{r}
+
+
+hist(preprocessed.data$Arrival.Delay.in.Minutes, breaks = 10, col="light green", main="Distribution of Arrival Delays ", xlab="delays (min)")
+
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+cc_hist(preprocessed.data,"Arrival.Delay.in.Minutes", "satisfaction", breaks=6)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+
+cc_boxplot(preprocessed.data, "Arrival.Delay.in.Minutes", "satisfaction")
+
+
+
+```
+
+
+## Pre-boarding
+
+
+
+
+
+
+
+
+```{r}
+Pre.boarding<-c("Ease.of.Online.booking","Departure.Arrival.time.convenient","Gate.location","Online.boarding")
+boxplot(x=as.list(preprocessed.data[Pre.boarding]),col = rainbow(4),main="Pre-boarding overall satisfaction")
+
+
+
+
+```
+
+
+
+## Ease.of.Online.booking : 
+The ease of online booking  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking is normally distributed with a slight skew in the rank 2 which highlights a slight dissatisfaction and neutrality.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Ease.of.Online.booking),col ="light blue" , xlab="Ranking", ylab="Ease of Online booking", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+```
+
+
+
+### Departure Arrival time convenient :
+The Departure Arrival time convenient  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking a significant skew towards the higher ranks (4-5) which reflects an overall satisfaction with the departure arrival time convenient process.
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Departure.Arrival.time.convenient),col ="blue" , xlab="Ranking", ylab="Departure Arrival time convenient", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+```
+
+
+
+### Gate location : 
+
+The Gate location  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking is normally distributed with a slight skew in the rank 4 which highlights a slight satisfaction.
+
+
+```{r}
+
+
+
+
+barplot(table(preprocessed.data$Gate.location),col =" light cyan" , xlab="Ranking", ylab="Gate location", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+
+```
+
+
+
+
+
+### Online boarding :
+The Online boarding   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards rank 4,  which reflects an overall satisfaction   with the Online boarding  process.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Online.boarding),col ="cyan" , xlab="Ranking", ylab="Online boarding", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+## On Borading : 
+
+
+
+
+
+
+
+
+```{r}
+
+On.boarding<- c("Inflight.wifi.service","Food.and.drink","Seat.comfort","Inflight.entertainment","On.board.service","Leg.room.service","Baggage.handling","Checkin.service","Inflight.service","Cleanliness")
+
+
+boxplot(x=as.list(preprocessed.data[On.boarding]),main= "On boarding overall satisfaction",col = rainbow(10))
+
+```
+
+
+
+
+
+## Inflight wifi service : 
+The Inflight wifi service feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking is normally distributed with a slight skew in the rank 2 which highlights a slight dissatisfaction and neutrality.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Inflight.wifi.service),col ="red" , xlab="Ranking", ylab="Inflight wifi service", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+```
+
+
+
+### Food and drink :
+The Food and drink  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking a significant skew towards the higher ranks (3-4-5) which reflects an overall satisfaction with the Food and drinks provided while on boarding .
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Food.and.drink),col ="orange" , xlab="Ranking", ylab="Food and drink", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+```
+
+
+
+### Seat comfort : 
+
+The Gate location  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking is normally distributed with a slight skew in the ranks (4-5) which highlights an overall  satisfaction.
+
+
+```{r}
+
+
+
+
+
+barplot(table(preprocessed.data$Seat.comfort),col ="green" , xlab="Ranking", ylab="Seat comfort", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+
+
+```
+
+
+
+
+
+### On board service :
+The On.board.service   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 3 and 4 ,  which reflects an overall satisfaction   with theOn.board.service.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$On.board.service),col ="cyan" , xlab="Ranking", ylab="On board service", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+### Leg room service :
+The Leg room service   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 4 and 5 ,  which reflects an overall satisfaction   with the Inflight entertainment.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Leg.room.service),col ="blue" , xlab="Ranking", ylab="Leg room service", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+### Baggage handling :
+The Baggage handling   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 4 and 5 ,  which reflects an overall satisfaction   with the Inflight entertainment.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Baggage.handling),col ="light blue" , xlab="Ranking", ylab="Baggage handling", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+### Checkin service :
+The Check-in service   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 3 and 4 ,  which reflects an overall satisfaction   with the Check-in.service.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Checkin.service),col ="purple" , xlab="Ranking", ylab="Check-in service", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Inflight service :
+The Inflight service  feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 4 and 5 ,  which reflects an overall satisfaction   with the Inflight servicet.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Inflight.service),col ="light yellow" , xlab="Ranking", ylab="Inflight service", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Cleanliness :
+The  Cleanliness   feature representing a ranking of satisfaction (1-5), the histogram of the relative ranking shows a significant skew towards the ranks 3,4 and 5 ,  which reflects an overall satisfaction   with the Cleanliness of the flights.
+
+
+
+```{r}
+
+
+
+barplot(table(preprocessed.data$Cleanliness),col ="yellow" , xlab="Ranking", ylab="Cleanliness", ylim=c(0, max(table(preprocessed.data$satisfaction)) + 5))
+
+
+
+```
+
+
+
+
+
+
+
+## Coorelation : 
+
+
+
+
+- the gender,customer type and age have a low correlation with the target variable (satisfaction)
+- Age and type of customer have shown a significant correlation with the target variable(satisfaction)
+- the pre-bording features ("Ease.of.Online.booking,Departure.Arrival.time.convenient,Gate.location ,On line boarding") have shown a significant correlation with the target variable (satisfaction), especially the online boarding feature (highly correlated with satisfaction)
+- the flight details have shown an insignificant correlation with the target variable except for the flight distance feature that is positively correlated with the target variable 
+
+
+- the on boarding features (Inflight.wifi.service,Food.and.drink,Seat.comfort,Inflight.entertainment,On.board.service,Leg.room.service,Baggage.handling,Checkin.service,Inflight.service,Cleanliness)  have shown an insignificant correlation with the target variable (satisfaction)
+
+
+- we also notice a significant correlation between categories of features (on bording and pre-bording ).
+
+
+```{r}
+corrplot(association(preprocessed.data.b)$value,tl.cex = 0.6)
+
+
+
+```
+
+
+
+
+
+
+
+## Dimensionality reduction : 
+
+Since the certain features are positively correlated with each other this causes an increase in the complexity of the data, therefore the continues features were kept with the target variables, And  MDS is applied over the rest of the categorical features.  
+Multi-Dimensional Scaling (MDS) is a statistical technique used to visualize the similarity or dissimilarity between data points in a lower-dimensional space. However, MDS is typically used with continuous data, and it can be challenging to use it with mixed data types that include categorical features.
+
+One way to use MDS with mixed data is to use the Gower distance metric, which is a similarity measure that can handle mixed data types. The Gower distance metric takes into account the differences in the data types and scales them accordingly to calculate the distance between data points.
+
+In addition, the choice of the number of dimensions in MDS can have a significant impact on the results. When using MDS, the stress value is commonly used to assess the quality of the solution. The stress value measures the difference between the actual pairwise distances and the distances in the reduced space. The lower the stress value, the better the fit between the actual and reduced distances.
+
+In this case, the stress method resulted in the best solution with k=1 and k=2, with stress scores of 0.591 and 0.596, respectively. The choice of k=2 is likely due to the desire to have a 2D visualization of the data that can be easily interpreted and visualized. The stress scores for k=1 and k=2 are relatively close, indicating that both solutions are reasonable and provide useful insights into the data.
+
+
+
+```{r}
+
+#preprocessed.data.DissimMatrix <- daisy(preprocessed.data, metric="gower")
+DissimMatrix <- daisy(preprocessed.data, metric="gower")
+View(dissiMatrix )
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+# drop the target variable (satisfaction): 
+Diss.data<- preprocessed.data[1:length(preprocessed.data)-1]
+
+nDimensions <-6
+# Prepare the vector with future stress values
+Stress <- vector("numeric",nDimensions)
+DissimMatrix <- daisy(preprocessed.data, metric="gower")
+
+for(i in 1:nDimensions){
+# Do MDS
+MDSTest <- cmdscale(DissimMatrix,k=i)
+# Produce dissimilarities matrix for the new dimensions
+MDSDist <- daisy(MDSTest,"gower")
+# Calculate stress metrics
+Stress[i] <- sqrt(sum((DissimMatrix -
+MDSDist)^2)/sum(DissimMatrix^2))
+}
+plot(Stress)
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+data.MDS <- cmdscale(DissimMatrix, k=2)
+colnames(data.MDS) <- c("D1","D2")
+plot(data.MDS)
+data.MDS2<-data.MDS
+
+
+plot(data.MDS,col=preprocessed.data$satisfaction)
+```
+
+
+
+
+##  Information Value : 
+
+Summary : 
+                            Variable           IV
+12                   Online.boarding 1.9611549420
+7              Inflight.wifi.service 1.6923856817
+4                     Type.of.Travel 1.1561307618
+5                              Class 1.1451029179
+14            Inflight.entertainment 0.9969574803
+13                      Seat.comfort 0.7528158848
+16                  Leg.room.service 0.6281768100
+15                  On.board.service 0.5853021120
+20                       Cleanliness 0.4766097947
+17                  Baggage.handling 0.4279038464
+9             Ease.of.Online.booking 0.4042798241
+19                  Inflight.service 0.3860974450
+18                   Checkin.service 0.2944595339
+2                      Customer.Type 0.2458863699
+11                    Food.and.drink 0.2297503952
+6                    Flight.Distance 0.1730105798
+10                     Gate.location 0.1160170708
+3                                Age 0.1112869880
+22          Arrival.Delay.in.Minutes 0.0538110981
+21        Departure.Delay.in.Minutes 0.0299812727
+8  Departure.Arrival.time.convenient 0.0195784002
+1                             Gender 0.0003242197
+
+
+
+the summary of the IV aligns with the previous correlation analysis highlighting the same important features
+
+
+
+```{r}
+
+
+names(preprocessed.data)
+summary(preprocessed.data.b)
+
+
+
+
+preprocessed.data.copy<-preprocessed.data.b
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+y <- preprocessed.data.b$satisfaction=="satisfied"
+class(y)
+
+y <- 1*y
+class(y)
+
+preprocessed.data["class"] <- y
+# Verify new variable has been created
+str(preprocessed.data)
+
+
+
+
+# exclude variable "default" by removing first column of "Default"
+IV <- create_infotables(data=subset(preprocessed.data, select = -satisfaction), y="class", bins = 2)
+IV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+plot_infotables(IV,"Online.boarding")
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+plot_infotables(IV,"Inflight.wifi.service")
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+plot_infotables(IV,"Type.of.Travel",)
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+corrplot(association(data.MDS)$value)
+
+
+
+
+```
+
